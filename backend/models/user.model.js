@@ -25,6 +25,17 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    // End-to-end encryption keys
+    encryptionKeys: {
+      privateKey: {
+        type: String,
+        required: true,
+      },
+      publicKey: {
+        type: String,
+        required: true,
+      },
+    },
   },
   { timestamps: true }
 );

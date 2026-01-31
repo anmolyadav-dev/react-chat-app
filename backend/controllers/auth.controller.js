@@ -1,6 +1,8 @@
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import generateTokenAndSetCookie from "../utils/generateJwt.js";
+import encryption from "../utils/encryption.js";
+
 export const signupUser = async (req, res) => {
   try {
     const { fullName, username, password, confirmPassword, gender } = req.body;
@@ -16,6 +18,9 @@ export const signupUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Generate encryption keys for end-to-end encryption
+    const { privateKey, publicKey } = encryption.generateKeyPair();
+
     // random user Avatar - API
     // https://avatar-placeholder.iran.liara.run
     // https://avatar.iran.liara.run/public/boy
@@ -30,6 +35,10 @@ export const signupUser = async (req, res) => {
       password: hashedPassword,
       gender: gender,
       avatar: gender === "male" ? boyAvatar : girlAvatar,
+      encryptionKeys: {
+        privateKey,
+        publicKey,
+      },
     });
 
     if (newUser) {
@@ -42,6 +51,10 @@ export const signupUser = async (req, res) => {
         fullName: newUser.fullName,
         username: newUser.username,
         avatar: newUser.avatar,
+        encryptionKeys: {
+          publicKey: newUser.encryptionKeys.publicKey,
+          privateKey: newUser.encryptionKeys.privateKey, // Send to client for decryption
+        },
       });
     }
   } catch (error) {
@@ -64,6 +77,14 @@ export const loginUser = async (req, res) => {
       return res.status(404).json({ error: "Invalid username or password" });
     }
 
+    // Check if user has encryption keys, generate if not
+    if (!user.encryptionKeys || !user.encryptionKeys.privateKey || !user.encryptionKeys.publicKey) {
+      const { privateKey, publicKey } = encryption.generateKeyPair();
+      user.encryptionKeys = { privateKey, publicKey };
+      await user.save();
+      console.log("Generated encryption keys for existing user:", user.username);
+    }
+
     // generate jwt and set cookie
     generateTokenAndSetCookie(user._id, res);
 
@@ -72,12 +93,17 @@ export const loginUser = async (req, res) => {
       fullName: user.fullName,
       username: user.username,
       avatar: user.avatar,
+      encryptionKeys: {
+        publicKey: user.encryptionKeys.publicKey,
+        privateKey: user.encryptionKeys.privateKey, // Send to client for decryption
+      },
     });
   } catch (error) {
     console.log("error logging in the user", error.message);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
 export const logoutUser = (req, res) => {
   try {
     res.cookie("token", "", { maxAge: 0 });

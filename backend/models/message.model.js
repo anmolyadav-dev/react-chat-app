@@ -16,6 +16,15 @@ const messageSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // End-to-end encryption fields
+    encryptedMessage: {
+      type: String,
+      required: true,
+    },
+    isEncrypted: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
 );
