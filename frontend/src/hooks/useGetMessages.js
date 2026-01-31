@@ -7,7 +7,7 @@ import encryption from "../utils/encryption.js";
 const useGetMessages = () => {
   const [loading, setLoading] = useState(false);
   const { messages, setMessages, selectedConversation } = useConversation();
-  const { encryptionKeys } = useAuthContext();
+  const { authUser, encryptionKeys } = useAuthContext();
 
   useEffect(() => {
     const getMessages = async () => {
@@ -17,30 +17,8 @@ const useGetMessages = () => {
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         
-        // Decrypt messages if they're encrypted
-        const decryptedMessages = data.map(msg => {
-          if (msg.isEncrypted && encryptionKeys) {
-            try {
-              const decryptedMessage = encryption.decryptMessage(
-                msg.message, 
-                encryptionKeys.privateKey
-              );
-              return {
-                ...msg,
-                message: decryptedMessage || "[Decryption failed]"
-              };
-            } catch (error) {
-              console.error("Failed to decrypt message:", error);
-              return {
-                ...msg,
-                message: "[Decryption failed]"
-              };
-            }
-          }
-          return msg;
-        });
-        
-        setMessages(decryptedMessages);
+        // Messages are already decrypted on the server, so we don't need to decrypt here
+        setMessages(data);
       } catch (error) {
         console.error("Error getting messages:", error);
         toast.error(error.message);
@@ -50,12 +28,12 @@ const useGetMessages = () => {
       }
     };
 
-    if (selectedConversation?._id) {
+    if (selectedConversation?._id && authUser?._id && encryptionKeys) {
       getMessages();
     } else {
       setMessages([]); // Clear messages when no conversation is selected
     }
-  }, [selectedConversation?._id, setMessages, encryptionKeys]);
+  }, [selectedConversation?._id, setMessages, authUser, encryptionKeys]);
 
   return { messages, loading };
 };

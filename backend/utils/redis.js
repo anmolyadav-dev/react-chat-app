@@ -13,6 +13,8 @@ class RedisClient {
   constructor() {
     this.client = null;
     this.isConnected = false;
+    this.MESSAGE_CACHE_TTL = 3600; // 1 hour
+    this.USER_CACHE_TTL = 1800; // 30 minutes
   }
 
   async connect() {
@@ -71,43 +73,44 @@ class RedisClient {
     }
   }
 
-  // Cache conversation messages
-  async cacheMessages(conversationId, messages, ttl = 1800) {
+  // Cache messages for a conversation
+  async cacheMessages(conversationId, messages) {
     if (!this.isConnected) return false;
+    
     try {
-      await this.client.setEx(`messages:${conversationId}`, ttl, JSON.stringify(messages));
+      const cacheKey = `messages:${conversationId}`;
+      // Store messages as JSON string with TTL
+      await this.client.setEx(cacheKey, this.MESSAGE_CACHE_TTL, JSON.stringify(messages));
+      console.log(`Cached ${messages.length} messages for conversation ${conversationId}`);
       return true;
     } catch (error) {
-      console.error('Error caching messages:', error);
+      console.error('Failed to cache messages:', error);
       return false;
     }
   }
 
-  // Get cached messages
+  // Get cached messages for a conversation
   async getCachedMessages(conversationId) {
     if (!this.isConnected) return null;
+    
     try {
-      const data = await this.client.get(`messages:${conversationId}`);
-      return data ? JSON.parse(data) : null;
+      const cacheKey = `messages:${conversationId}`;
+      const cached = await this.client.get(cacheKey);
+      
+      if (cached) {
+        const messages = JSON.parse(cached);
+        console.log(`Retrieved ${messages.length} cached messages for conversation ${conversationId}`);
+        return messages;
+      }
+      
+      return null;
     } catch (error) {
-      console.error('Error getting cached messages:', error);
+      console.error('Failed to get cached messages:', error);
       return null;
     }
   }
 
-  // Invalidate user cache
-  async invalidateUserCache(userId) {
-    if (!this.isConnected) return false;
-    try {
-      await this.client.del(`user:${userId}`);
-      return true;
-    } catch (error) {
-      console.error('Error invalidating user cache:', error);
-      return false;
-    }
-  }
-
-  // Invalidate messages cache
+  // Invalidate messages cache for a conversation
   async invalidateMessagesCache(conversationId) {
     if (!this.isConnected) return false;
     try {
